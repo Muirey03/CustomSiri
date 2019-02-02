@@ -1,0 +1,9 @@
+Package: com.squ1dd13.customsiri
+Name: CustomSiri
+Depends: mobilesubstrate, preferenceloader
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: Customised siri commands
+Maintainer: Muirey03
+Author: Squ1dd13
+Section: Tweaks

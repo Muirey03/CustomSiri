@@ -10,12 +10,14 @@
 @property (nonatomic, copy) NSString *userSpeech;
 @end
 
+@interface AFConnectionClientServiceDelegate : NSObject
+@end
+
 static NSDictionary *customReplies;
 
 #pragma mark Getting User Speech
 %hook AFConnectionClientServiceDelegate
--(void)speechRecognized:(id)arg1 {
-	#define arg1 (NSObject *)arg1
+-(void)speechRecognized:(NSObject*)arg1 {
 	//arg1 --> recognition --> phrases --> object --> interpretations --> object --> tokens --> object --> text
 	NSMutableString *fullPhrase = [NSMutableString string];
 	NSArray *phrases = [arg1 valueForKeyPath:@"recognition.phrases"];
@@ -34,7 +36,6 @@ static NSDictionary *customReplies;
 			}
 		}
 	}
-	#undef arg1
 	NSString *speech = [[[fullPhrase copy] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] lowercaseString];
 	[[self valueForKey:@"_connection"] setValue:speech forKey:@"userSpeech"];
 	%orig;
@@ -49,11 +50,6 @@ static NSDictionary *customReplies;
 	//work out if we should be giving a custom reply
 	NSString *stringToSpeak = @"rreeeeeee";
 
-	//of course, in a real project this would be from a file or something loaded in the constructor
-	customReplies = @{
-		@"welcome" : @"To Jurassic Park."
-	};
-
 	if(customReplies[self.userSpeech]) {
 		stringToSpeak = customReplies[self.userSpeech];
 	} else {
@@ -63,11 +59,11 @@ static NSDictionary *customReplies;
 	}
 
 	//create a context for the ace object
-	id context = NSClassFromString(@"BasicAceContext");
-	id object = arg1;
+	Class context = %c(BasicAceContext);
+	NSObject* object = arg1;
 
 	//get the original dictionary
-	NSMutableDictionary *dict = [[(NSObject *)object valueForKey:@"dictionary"] mutableCopy];
+	NSMutableDictionary *dict = [[object valueForKey:@"dictionary"] mutableCopy];
 
 	/*
 	How it works:
@@ -106,3 +102,9 @@ static NSDictionary *customReplies;
 	self.userSpeech = @"";
 }
 %end
+
+%ctor {
+	customReplies = @{
+		@"welcome" : @"To Jurassic Park."
+	};
+}
