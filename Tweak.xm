@@ -1,3 +1,6 @@
+#include <vector>
+#import "RemoteLog.h"
+
 @interface AceObject : NSObject
 @property(copy, nonatomic) NSString *refId;
 @property(copy, nonatomic) NSString *aceId;
@@ -13,7 +16,47 @@
 @interface AFConnectionClientServiceDelegate : NSObject
 @end
 
-static NSDictionary *customReplies;
+struct Reply
+{
+	NSString* command;
+	NSString* response;
+};
+
+static std::vector<Reply> makeRepliesVector(NSDictionary* repliesDict)
+{
+	NSArray<NSDictionary*>* repArr = repliesDict[@"replies"];
+	std::vector<struct Reply> replies(repArr.count);
+	for (int i = 0; i < repArr.count; i++)
+	{
+		struct Reply r = { repArr[i][@"command"], repArr[i][@"response"] };
+		replies[i] = r;
+	}
+	return replies;
+}
+
+static NSDictionary* makePlistDict(std::vector<struct Reply> replies)
+{
+	NSMutableDictionary* dict = [NSMutableDictionary new];
+	NSMutableArray* repArr = [NSMutableArray new];
+	for (int i = 0; i < replies.size(); i++)
+	{
+		struct Reply rep = replies[i];
+		NSDictionary* rDict = @{@"command" : rep.command, @"response" : rep.response};
+		[repArr addObject:rDict];
+	}
+	dict[@"replies"] = [repArr copy];
+	return [dict copy];
+}
+
+static std::vector<struct Reply> customReplies;
+
+static void loadPrefs()
+{
+	struct Reply r;
+	r.command = @"welcome";
+	r.response = @"To Jurassic Park.";
+	customReplies.push_back(r);
+}
 
 #pragma mark Getting User Speech
 %hook AFConnectionClientServiceDelegate
@@ -50,9 +93,18 @@ static NSDictionary *customReplies;
 	//work out if we should be giving a custom reply
 	NSString *stringToSpeak = @"rreeeeeee";
 
-	if(customReplies[self.userSpeech]) {
-		stringToSpeak = customReplies[self.userSpeech];
-	} else {
+	BOOL hasReply = NO;
+	for (int i = 0; i < customReplies.size(); i++)
+	{
+		if ([[customReplies[i].command lowercaseString] isEqualToString:[self.userSpeech lowercaseString]])
+		{
+			hasReply = YES;
+			stringToSpeak = customReplies[i].response;
+			break;
+		}
+	}
+
+	if (!hasReply) {
 		//say the original and quit
 		%orig;
 		return;
@@ -103,8 +155,10 @@ static NSDictionary *customReplies;
 }
 %end
 
-%ctor {
-	customReplies = @{
-		@"welcome" : @"To Jurassic Park."
-	};
+%hook SpringBoard
+-(void)applicationDidFinishLaunching:(id)arg1
+{
+	%orig;
+	loadPrefs();
 }
+%end
