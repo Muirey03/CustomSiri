@@ -1,6 +1,5 @@
 #include <vector>
 #import <libactivator/libactivator.h>
-#import "RemoteLog.h"
 
 @interface AceObject : NSObject
 @property(copy, nonatomic) NSString *refId;
@@ -17,6 +16,10 @@
 @interface AFConnectionClientServiceDelegate : NSObject
 @end
 
+@interface NSUserDefaults (internal)
+-(id)objectForKey:(id)arg1 inDomain:(id)arg2;
+@end
+
 struct Reply
 {
 	NSString* command;
@@ -24,9 +27,8 @@ struct Reply
 	NSString* eventName;
 };
 
-static std::vector<Reply> makeRepliesVector(NSDictionary* repliesDict)
+static std::vector<Reply> makeRepliesVector(NSArray<NSDictionary*>* repArr)
 {
-	NSArray<NSDictionary*>* repArr = repliesDict[@"replies"];
 	std::vector<struct Reply> replies(repArr.count);
 	for (int i = 0; i < repArr.count; i++)
 	{
@@ -36,29 +38,12 @@ static std::vector<Reply> makeRepliesVector(NSDictionary* repliesDict)
 	return replies;
 }
 
-static NSDictionary* makePlistDict(std::vector<struct Reply> replies)
-{
-	NSMutableDictionary* dict = [NSMutableDictionary new];
-	NSMutableArray* repArr = [NSMutableArray new];
-	for (int i = 0; i < replies.size(); i++)
-	{
-		struct Reply rep = replies[i];
-		NSDictionary* rDict = @{@"command" : rep.command, @"response" : rep.response, @"event" : rep.eventName};
-		[repArr addObject:rDict];
-	}
-	dict[@"replies"] = [repArr copy];
-	return [dict copy];
-}
-
 static std::vector<struct Reply> customReplies;
 
 static void loadPrefs()
 {
-	struct Reply r;
-	r.command = @"welcome";
-	r.response = @"To Jurassic Park.";
-	r.eventName = @"com.squ1dd13.customsiri-event1";
-	customReplies.push_back(r);
+	NSArray<NSDictionary*>* repArr = [[NSUserDefaults standardUserDefaults] objectForKey:@"replies" inDomain:@"com.squ1dd13.customsiri"];
+	customReplies = makeRepliesVector(repArr);
 }
 
 static void callEvent(NSString* name)

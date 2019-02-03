@@ -1,3 +1,5 @@
+GO_EASY_ON_ME=1
+
 include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = CustomSiri
@@ -5,6 +7,7 @@ CustomSiri_FILES = CTSRootListController.m
 CustomSiri_INSTALL_PATH = /Library/PreferenceBundles
 CustomSiri_FRAMEWORKS = UIKit
 CustomSiri_PRIVATE_FRAMEWORKS = Preferences
+CustomSiri_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/bundle.mk
 
