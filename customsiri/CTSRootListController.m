@@ -1,6 +1,7 @@
 #import "CTSRootListController.h"
 #import <Preferences/PSSpecifier.h>
 #import <objc/runtime.h>
+#import <notify.h>
 
 @interface PSSpecifier (PWithP)
 +(id)specifierWithSpecifier:(id)arg1;
@@ -161,6 +162,7 @@
 
 	[replies addObject:[reply copy]];
 	[prefs setObject:replies forKey:@"replies" inDomain:domain];
+	notify_post("com.squ1dd13.customsiri-prefschanged");
 }
 
 -(id)readPreferenceValue:(PSSpecifier*)spec

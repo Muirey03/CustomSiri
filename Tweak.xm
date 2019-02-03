@@ -166,3 +166,8 @@ static void callEvent(NSString* name)
 	loadPrefs();
 }
 %end
+
+%ctor
+{
+	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), nil, (CFNotificationCallback)loadPrefs, CFSTR("com.squ1dd13.customsiri-prefschanged"), NULL, CFNotificationSuspensionBehaviorDrop);
+}
