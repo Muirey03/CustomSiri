@@ -1,4 +1,5 @@
 #include <vector>
+#import <libactivator/libactivator.h>
 #import "RemoteLog.h"
 
 @interface AceObject : NSObject
@@ -20,6 +21,7 @@ struct Reply
 {
 	NSString* command;
 	NSString* response;
+	NSString* eventName;
 };
 
 static std::vector<Reply> makeRepliesVector(NSDictionary* repliesDict)
@@ -28,7 +30,7 @@ static std::vector<Reply> makeRepliesVector(NSDictionary* repliesDict)
 	std::vector<struct Reply> replies(repArr.count);
 	for (int i = 0; i < repArr.count; i++)
 	{
-		struct Reply r = { repArr[i][@"command"], repArr[i][@"response"] };
+		struct Reply r = { repArr[i][@"command"], repArr[i][@"response"], repArr[i][@"event"] };
 		replies[i] = r;
 	}
 	return replies;
@@ -41,7 +43,7 @@ static NSDictionary* makePlistDict(std::vector<struct Reply> replies)
 	for (int i = 0; i < replies.size(); i++)
 	{
 		struct Reply rep = replies[i];
-		NSDictionary* rDict = @{@"command" : rep.command, @"response" : rep.response};
+		NSDictionary* rDict = @{@"command" : rep.command, @"response" : rep.response, @"event" : rep.eventName};
 		[repArr addObject:rDict];
 	}
 	dict[@"replies"] = [repArr copy];
@@ -55,7 +57,14 @@ static void loadPrefs()
 	struct Reply r;
 	r.command = @"welcome";
 	r.response = @"To Jurassic Park.";
+	r.eventName = @"com.squ1dd13.customsiri-event1";
 	customReplies.push_back(r);
+}
+
+static void callEvent(NSString* name)
+{
+	LAEvent* event = [LAEvent eventWithName:name mode:[LASharedActivator currentEventMode]];
+    [LASharedActivator sendEventToListener:event];
 }
 
 #pragma mark Getting User Speech
@@ -94,12 +103,14 @@ static void loadPrefs()
 	NSString *stringToSpeak = @"rreeeeeee";
 
 	BOOL hasReply = NO;
+	__block struct Reply* rep;
 	for (int i = 0; i < customReplies.size(); i++)
 	{
 		if ([[customReplies[i].command lowercaseString] isEqualToString:[self.userSpeech lowercaseString]])
 		{
 			hasReply = YES;
 			stringToSpeak = customReplies[i].response;
+			rep = &customReplies[i];
 			break;
 		}
 	}
@@ -146,6 +157,14 @@ static void loadPrefs()
 
 	//create a new ace object with the modified dictionary
 	AceObject *aceObject = [%c(AceObject) aceObjectWithDictionary:[dict copy] context:context];
+
+	//call event once response heard
+	__block void (^oldBlock)(void) = arg2;
+	arg2 = ^{
+		oldBlock();
+		//call activator event
+		callEvent(rep->eventName);
+	};
 
 	//run normally with the modified ace object and the original block
 	%orig(aceObject, arg2);
