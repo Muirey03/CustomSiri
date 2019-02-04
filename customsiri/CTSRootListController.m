@@ -25,19 +25,22 @@
 	return _specifiers;
 }
 
--(void)loadView
+-(id)init
 {
-	[super loadView];
-
-	UIBarButtonItem* plusBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addButtonPressed)];
-    [self.navigationItem setRightBarButtonItem:plusBtn];
-
-	//load activator bundle:
-	NSBundle* activatorBndl = [NSBundle bundleWithPath:@"/System/Library/PreferenceBundles/LibActivator.bundle"];
-	if (!activatorBndl.loaded)
+	self = [super init];
+	if (self)
 	{
-		[activatorBndl load];
+		UIBarButtonItem* plusBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addButtonPressed)];
+	    [self.navigationItem setRightBarButtonItem:plusBtn];
+
+		//load activator bundle:
+		NSBundle* activatorBndl = [NSBundle bundleWithPath:@"/System/Library/PreferenceBundles/LibActivator.bundle"];
+		if (!activatorBndl.loaded)
+		{
+			[activatorBndl load];
+		}
 	}
+	return self;
 }
 
 -(void)viewDidLoad
@@ -92,14 +95,31 @@
 	[activatorSpec properties][@"activatorEvent"] = [NSString stringWithFormat:@"com.squ1dd13.customsiri-event%lu", (unsigned long)lastIndex];
 	[activatorSpec properties][@"index"] = @(lastIndex);
 
+	//create remove button:
+	PSSpecifier* btnSpec = [PSSpecifier preferenceSpecifierNamed:@"Remove Command" target:self set:nil get:nil detail:nil cell:13 edit:nil];
+	NSDictionary* btnProp = @{
+		@"action" : @"remove:",
+		@"cell" : @"PSButtonCell",
+		@"label" : @"Remove Command",
+		@"index" : @(lastIndex)
+	};
+	btnSpec.buttonAction = @selector(remove:);
+	[btnSpec setProperties:[btnProp mutableCopy]];
+
 	//create group cell:
 	PSSpecifier* groupSpec = [PSSpecifier preferenceSpecifierNamed:nil target:nil set:nil get:nil detail:nil cell:0 edit:nil];
+	NSDictionary* groupProp = @{
+		@"cell" : @"PSGroupCell",
+		@"index" : @(lastIndex + 1)
+	};
+	[groupSpec setProperties:[groupProp mutableCopy]];
 
 	//show specifiers
-	[self addSpecifier:commandSpec];
-	[self addSpecifier:responseSpec];
-	[self addSpecifier:activatorSpec];
-	[self addSpecifier:groupSpec];
+	[self addSpecifier:commandSpec animated:YES];
+	[self addSpecifier:responseSpec animated:YES];
+	[self addSpecifier:activatorSpec animated:YES];
+	[self addSpecifier:btnSpec animated:YES];
+	[self addSpecifier:groupSpec animated:YES];
 
 	//create dict in array
 	NSString* domain = @"com.squ1dd13.customsiri";
@@ -126,6 +146,35 @@
 		[replies addObject:newReply];
 		[prefs setObject:replies forKey:@"replies" inDomain:domain];
 	}
+}
+
+-(void)remove:(PSSpecifier*)spec
+{
+	NSInteger index = [[spec properties][@"index"] integerValue];
+	//find specifiers to remove:
+	for (PSSpecifier* otherSpec in _specifiers)
+	{
+		if ([otherSpec properties][@"index"] && [[otherSpec properties][@"index"] integerValue] == index)
+		{
+			[self removeSpecifier:otherSpec animated:YES];
+		}
+	}
+
+	//remove from array:
+	NSString* domain = @"com.squ1dd13.customsiri";
+	NSUserDefaults* prefs = [NSUserDefaults standardUserDefaults];
+	NSMutableArray* replies = [[prefs objectForKey:@"replies" inDomain:domain] mutableCopy];
+	replies = replies ? replies : [NSMutableArray new];
+	for (int i = 0; i < replies.count; i++)
+	{
+		NSDictionary* rep = replies[i];
+		if ([rep[@"index"] integerValue] == index)
+		{
+			[replies removeObject:rep];
+			break;
+		}
+	}
+	[prefs setObject:[replies copy] forKey:@"replies" inDomain:domain];
 }
 
 -(void)setPreferenceValue:(id)arg1 specifier:(PSSpecifier*)spec
@@ -161,7 +210,7 @@
 	reply[prop[@"key"]] = arg1;
 
 	[replies addObject:[reply copy]];
-	[prefs setObject:replies forKey:@"replies" inDomain:domain];
+	[prefs setObject:[replies copy] forKey:@"replies" inDomain:domain];
 	notify_post("com.squ1dd13.customsiri-prefschanged");
 }
 
